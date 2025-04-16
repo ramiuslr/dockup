@@ -1,0 +1,58 @@
+#!/bin/env python
+
+import docker
+import json
+import subprocess
+from packaging.version import Version, InvalidVersion
+
+class Container:
+    def __init__(self, name, repo, local_tag, remote_tag):
+        self.name = name
+        self.repo = repo
+        self.local_tag = local_tag
+        self.remote_tag = remote_tag
+
+def get_local_tags(images):
+    d = docker.from_env()
+    containers = d.containers.list()
+    for container in containers:
+        tags = container.image.tags
+        if tags:
+            image = tags[0]
+            if ":" in image:
+                repo, tag = image.rsplit(":", 1)
+                try:
+                    tag = str(Version(tag))
+                except InvalidVersion:
+                    tag = tag
+                images.append(Container(container.name, repo, tag, None))
+    return images
+
+def get_remote_tags(images):
+    for img in images:
+        result = subprocess.run(
+            ["regctl", "tag", "ls", img.repo],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True
+        )
+        tags = result.stdout.strip().splitlines()
+        clean_tags = []
+        for tag in tags:
+            try:
+                clean_tags.append(Version(tag))
+            except InvalidVersion:
+                continue
+        tags = sorted(clean_tags, reverse=True)
+        img.remote_tag = str(tags[0])
+    return images
+
+def main():
+    images = []
+    images = get_local_tags(images) 
+    images = get_remote_tags(images)
+    json_string = json.dumps([ob.__dict__ for ob in images])
+    print(json_string)
+
+main()
