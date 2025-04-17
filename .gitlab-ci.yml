@@ -18,7 +18,7 @@ linting:
     - flake8 ${EXECUTABLE_NAME}
     # - pylint ${EXECUTABLE_NAME} --disable=C0111
 
-build_image:
+release:
   image: docker:latest
   services:
     - docker:dind
