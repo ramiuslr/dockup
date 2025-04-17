@@ -1,9 +1,56 @@
 #!/bin/env python
 
-import docker
+import http.server
 import json
+import logging
+import os
+import socketserver
 import subprocess
-from packaging.version import Version, InvalidVersion
+import time
+from threading import Lock, Thread
+
+import docker
+from dotenv import load_dotenv
+from packaging.version import InvalidVersion, Version
+
+# Global variables
+data_lock = Lock()
+g_data = []
+
+
+class DockupHandler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        with data_lock:
+            if self.path == "/updates":
+                self.serve_data(g_data)
+            else:
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(b"File not found")
+
+    def serve_data(self, data):
+        if data is None:
+            self.send_response(503)
+            self.send_header("Content-type", "text/plain")
+            self.end_headers()
+            self.wfile.write(b"Service unavailable - data not yet generated")
+            return
+        self.send_response(200)
+        self.send_header("Content-type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data.encode("utf-8"))
+
+    def log_message(self, format, *args):
+        logging.info(
+            "%s - - [%s] %s"
+            % (
+                self.address_string(),
+                self.log_date_time_string(),
+                format % args,
+            )
+        )
+
 
 class Container:
     def __init__(self, name, repo, local_tag, remote_tag):
@@ -12,9 +59,11 @@ class Container:
         self.local_tag = local_tag
         self.remote_tag = remote_tag
 
+
 def get_local_tags(images):
     d = docker.from_env()
     containers = d.containers.list()
+    logging.info(f"Found {len(containers)} containers currently running")
     for container in containers:
         tags = container.image.tags
         if tags:
@@ -28,6 +77,7 @@ def get_local_tags(images):
                 images.append(Container(container.name, repo, tag, None))
     return images
 
+
 def get_remote_tags(images):
     for img in images:
         result = subprocess.run(
@@ -35,7 +85,7 @@ def get_remote_tags(images):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            check=True
+            check=True,
         )
         tags = result.stdout.strip().splitlines()
         clean_tags = []
@@ -48,11 +98,62 @@ def get_remote_tags(images):
         img.remote_tag = str(tags[0])
     return images
 
-def main():
-    images = []
-    images = get_local_tags(images) 
-    images = get_remote_tags(images)
-    json_string = json.dumps([ob.__dict__ for ob in images])
-    print(json_string)
 
-main()
+def build_result():
+    images = []
+    images = get_local_tags(images)
+    images = get_remote_tags(images)
+    images_need_update = []
+    for img in images:
+        if img.local_tag != img.remote_tag:
+            images_need_update.append(img)
+    return json.dumps([ob.__dict__ for ob in images_need_update])
+
+
+def update_data(interval):
+    global g_data
+    while True:
+        logging.info("Updating data...")
+        try:
+            with data_lock:
+                g_data = build_result()
+            logging.info("Updated images list in memory")
+        except Exception as e:
+            logging.error(f"Update failed: {str(e)}")
+        time.sleep(interval * 60)
+
+
+def main():
+    # Initialize logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",  # Explicit date format
+    )
+
+    # Read parameters from env
+    load_dotenv()
+    port = int(os.getenv("DOCKUP_PORT", 8000))
+    interval = int(os.getenv("DOCKUP_INTERVAL", 30))
+
+    logging.info(f"Starting with check interval: {interval} minutes")
+    logging.info(f"Server port: {port}")
+
+    # Start data update thread
+    update_thread = Thread(target=update_data, args=(interval,), daemon=True)
+    update_thread.start()
+
+    # Start http server
+    Handler = DockupHandler
+    with socketserver.TCPServer(("", port), Handler) as httpd:
+        logging.info(f"Running at http://0.0.0.0:{port}")
+        logging.info("Available endpoints:")
+        logging.info(f"http://0.0.0.0:{port}/updates")
+        try:
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            logging.info("Server shutting down")
+
+
+if __name__ == "__main__":
+    main()
