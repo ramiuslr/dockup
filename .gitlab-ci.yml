@@ -51,7 +51,7 @@ build_image:
       fi
 
 publish_image:
-  stage: publish
+  stage: release
   needs: [build_image]
   script:
     - docker push $IMAGE_NAME:$SHORT_SHA
