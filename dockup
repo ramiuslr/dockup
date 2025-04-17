@@ -13,9 +13,11 @@ import docker
 from dotenv import load_dotenv
 from packaging.version import InvalidVersion, Version
 
+
 # Global variables
 data_lock = Lock()
 g_data = []
+g_data_all = []
 
 
 class DockupHandler(http.server.SimpleHTTPRequestHandler):
@@ -23,6 +25,8 @@ class DockupHandler(http.server.SimpleHTTPRequestHandler):
         with data_lock:
             if self.path == "/updates":
                 self.serve_data(g_data)
+            elif self.path == "/all":
+                self.serve_data(g_data_all)
             else:
                 self.send_response(404)
                 self.end_headers()
@@ -117,13 +121,25 @@ def build_result():
     return json.dumps([ob.__dict__ for ob in images_need_update])
 
 
+def build_result_all():
+    images = []
+    images = get_local_tags(images)
+    images = get_remote_tags(images)
+    images_all = []
+    for img in images:
+        images_all.append(img)
+    return json.dumps([ob.__dict__ for ob in images_all])
+
+
 def update_data(interval):
     global g_data
+    global g_data_all
     while True:
         logging.info("Updating data...")
         try:
             with data_lock:
                 g_data = build_result()
+                g_data_all = build_result_all()
             logging.info("Updated images list in memory")
         except Exception as e:
             logging.error(f"Update failed: {str(e)}")
@@ -156,6 +172,7 @@ def main():
         logging.info(f"Running at http://0.0.0.0:{port}")
         logging.info("Available endpoints:")
         logging.info(f"http://0.0.0.0:{port}/updates")
+        logging.info(f"http://0.0.0.0:{port}/all")
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
