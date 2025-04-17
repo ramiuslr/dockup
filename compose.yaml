@@ -7,6 +7,8 @@ services:
     restart: always
     ports:
       - 8000:8000
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
       DOCKUP_INTERVAL: 5 # Defaults to 30
 ...
