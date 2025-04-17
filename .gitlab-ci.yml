@@ -1,0 +1,70 @@
+---
+default:
+  image: docker:latest
+  services:
+    - docker:dind
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
+
+stages:
+  - linting
+  - build
+  - release
+
+variables:
+  EXECUTABLE_NAME: dockup
+  IMAGE_NAME: ${CI_REGISTRY_IMAGE}
+  SHORT_SHA: ${CI_COMMIT_SHORT_SHA}
+  DATE_TAG: $(date +%Y%m%d-%H%M%S)
+  SEMVER: "1.2.3"
+
+linting:
+  stage: linting
+  image: python:latest
+  before_script: []
+  script:
+    - pip install -r requirements.txt
+    - pip install isort black flake8 pylint
+    - isort ${EXECUTABLE_NAME} --check-only
+    - black ${EXECUTABLE_NAME} --check --diff --line-length 80
+    - flake8 ${EXECUTABLE_NAME}
+    # - pylint ${EXECUTABLE_NAME} --disable=C0111
+
+build_image:
+  stage: build
+  script:
+    - docker build -t $IMAGE_NAME:$SHORT_SHA .
+    - docker tag $IMAGE_NAME:$SHORT_SHA $IMAGE_NAME:$DATE_TAG
+    
+    # For main branch builds
+    - if [ "$CI_COMMIT_BRANCH" = "main" ]; then
+        docker tag $IMAGE_NAME:$SHORT_SHA $IMAGE_NAME:latest;
+        docker tag $IMAGE_NAME:$SHORT_SHA $IMAGE_NAME:stable;
+      fi
+
+    # For release tags (v1.2.3)
+    - if [[ "$CI_COMMIT_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        SEMVER="${CI_COMMIT_TAG#v}";
+        docker tag $IMAGE_NAME:$SHORT_SHA $IMAGE_NAME:$SEMVER;
+        docker tag $IMAGE_NAME:$SHORT_SHA $IMAGE_NAME:${SEMVER%.*};
+        docker tag $IMAGE_NAME:$SHORT_SHA $IMAGE_NAME:${SEMVER%%.*};
+      fi
+
+publish_image:
+  stage: publish
+  needs: [build_image]
+  script:
+    - docker push $IMAGE_NAME:$SHORT_SHA
+    - docker push $IMAGE_NAME:$DATE_TAG
+    
+    - if [ "$CI_COMMIT_BRANCH" = "main" ]; then
+        docker push $IMAGE_NAME:latest;
+        docker push $IMAGE_NAME:stable;
+      fi
+
+    - if [[ "$CI_COMMIT_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        docker push $IMAGE_NAME:$SEMVER;
+        docker push $IMAGE_NAME:${SEMVER%.*};
+        docker push $IMAGE_NAME:${SEMVER%%.*};
+      fi
+...
