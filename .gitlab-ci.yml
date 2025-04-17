@@ -7,6 +7,7 @@ variables:
   EXECUTABLE_NAME: dockup
   IMAGE_NAME: ${CI_REGISTRY_IMAGE}
 
+linting:
   stage: linting
   image: python:latest
   script:
