@@ -13,7 +13,6 @@ import docker
 from dotenv import load_dotenv
 from packaging.version import InvalidVersion, Version
 
-
 # Global variables
 data_lock = Lock()
 g_data = []
