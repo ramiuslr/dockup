@@ -11,7 +11,7 @@ from threading import Lock, Thread
 
 import docker
 from dotenv import load_dotenv
-from packaging.version import InvalidVersion, Version
+from packaging.version import InvalidVersion, Version, parse
 
 # Global variables
 data_lock = Lock()
@@ -73,12 +73,29 @@ def get_local_tags(images):
             image = tags[0]
             if ":" in image:
                 repo, tag = image.rsplit(":", 1)
-                try:
-                    tag = str(Version(tag))
-                except InvalidVersion:
-                    tag = tag
                 images.append(Container(container.name, repo, tag, None))
     return images
+
+
+def is_valid_semver(tag):
+    """Requires MAJOR.MINOR.PATCH with optional prerelease/build metadata"""
+    if "." not in tag:
+        return False
+    try:
+        Version(tag)
+        return True
+    except InvalidVersion:
+        return False
+
+
+def extract_suffix(tag):
+    """Extract suffix if present (e.g., '-alpine')"""
+    return "-" + tag.split("-", 1)[1] if "-" in tag else None
+
+
+def compare_versions(versions):
+    """Sort mixed-format versions (PEP 440 and legacy)"""
+    return sorted(versions, key=parse, reverse=True)[0]
 
 
 def get_remote_tags(images):
@@ -92,17 +109,40 @@ def get_remote_tags(images):
                 check=True,
             )
             tags = result.stdout.strip().splitlines()
-            clean_tags = []
+            valid_versions = []
+
+            # Extract local suffix (e.g., '-alpine')
+            local_suffix = (
+                "-" + img.local_tag.split("-")[1]
+                if "-" in img.local_tag
+                else None
+            )
+
             for tag in tags:
-                try:
-                    clean_tags.append(Version(tag))
-                except InvalidVersion:
+                # Skip mismatched suffixes
+                if local_suffix and not tag.endswith(local_suffix):
                     continue
-            if clean_tags:
-                sorted_tags = sorted(clean_tags, reverse=True)
-                img.remote_tag = str(sorted_tags[0])
+
+                # Validate version structure
+                if is_valid_semver(
+                    tag.split("-")[0]
+                ):  # Check version part only
+                    try:
+                        ver = Version(tag.split("-")[0])
+                        valid_versions.append(
+                            (ver, tag)
+                        )  # Store both parsed version and full tag
+                    except InvalidVersion:
+                        continue
+
+            if valid_versions:
+                latest_ver, latest_tag = max(
+                    valid_versions, key=lambda x: x[0]
+                )
+                img.remote_tag = latest_tag
             else:
                 img.remote_tag = None
+
         except Exception as e:
             logging.error(f"Error checking {img.repo}: {str(e)}")
             img.remote_tag = None
