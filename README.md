@@ -1,6 +1,9 @@
 dockup
 ---
 
+# Presentation
+Monitoring docker container updates is not that simple. This project's purpose is to expose JSON metrics, comparing local and remote tags, featuring semver checks and suffix preservation.
+
 # Quick start
 Get the provided `compose.yaml`.
 ```bash
