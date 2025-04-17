@@ -80,22 +80,29 @@ def get_local_tags(images):
 
 def get_remote_tags(images):
     for img in images:
-        result = subprocess.run(
-            ["regctl", "tag", "ls", img.repo],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            check=True,
-        )
-        tags = result.stdout.strip().splitlines()
-        clean_tags = []
-        for tag in tags:
-            try:
-                clean_tags.append(Version(tag))
-            except InvalidVersion:
-                continue
-        tags = sorted(clean_tags, reverse=True)
-        img.remote_tag = str(tags[0])
+        try:
+            result = subprocess.run(
+                ["regctl", "tag", "ls", img.repo],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=True
+            )
+            tags = result.stdout.strip().splitlines()
+            clean_tags = []
+            for tag in tags:
+                try:
+                    clean_tags.append(Version(tag))
+                except InvalidVersion:
+                    continue
+            if clean_tags:
+                sorted_tags = sorted(clean_tags, reverse=True)
+                img.remote_tag = str(sorted_tags[0])
+            else:
+                img.remote_tag = None
+        except Exception as e:
+            logging.error(f"Error checking {img.repo}: {str(e)}")
+            img.remote_tag = None
     return images
 
 
