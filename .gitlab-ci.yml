@@ -14,7 +14,7 @@ linting:
     - pip install -r requirements.txt
     - pip install isort black flake8 pylint
     - isort ${EXECUTABLE_NAME} --check-only
-    - black ${EXECUTABLE_NAME} --check --diff --line-length 80
+    - black ${EXECUTABLE_NAME} --check --diff --line-length 79
     - flake8 ${EXECUTABLE_NAME}
     # - pylint ${EXECUTABLE_NAME} --disable=C0111
 
