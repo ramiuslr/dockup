@@ -1,0 +1,12 @@
+---
+name: dockup
+services:
+  dockup:
+    image: registry.gitlab.com/ramiuslr/dockup:latest
+    container_name: dockup
+    restart: always
+    ports:
+      - 8000:8000
+    environment:
+      DOCKUP_INTERVAL: 5 # Defaults to 30
+...
