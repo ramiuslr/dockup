@@ -2,7 +2,7 @@
 name: dockup
 services:
   dockup:
-    image: registry.gitlab.com/ramiuslr/dockup:latest
+    image: ramiuslr/dockup:latest # You should set a fixed tag
     container_name: dockup
     restart: always
     ports:
