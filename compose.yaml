@@ -3,6 +3,7 @@ name: dockup
 services:
   dockup:
     image: ramiuslr/dockup:latest # You should set a fixed tag
+    # build: . # Use this for local development setup
     container_name: dockup
     restart: always
     ports:

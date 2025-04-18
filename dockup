@@ -123,6 +123,13 @@ def get_remote_tags(images):
                 if local_suffix and not tag.endswith(local_suffix):
                     continue
 
+                # Skip non-production versions
+                if any(
+                    bad_keyword in tag.lower()
+                    for bad_keyword in ["test", "rc", "alpha"]
+                ):
+                    continue
+
                 # Validate version structure
                 if is_valid_semver(
                     tag.split("-")[0]

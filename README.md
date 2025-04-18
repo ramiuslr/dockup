@@ -10,6 +10,10 @@ Get the provided `compose.yaml`.
 docker compose up -d
 ```
 
+All images are exposed to `http://0.0.0.0:8000/all` in JSON format.
+
+If you want to get only images needing update, look at `http://0.0.0.0:8000/updates`.
+
 # Requirements
 This program needs [regctl](https://github.com/regclient/regclient.git).
 It is shipped with container image by default, however you'll need to install it by yourself if running script directly.
