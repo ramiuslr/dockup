@@ -4,14 +4,30 @@ import http.server
 import json
 import logging
 import os
+import signal
 import socketserver
 import subprocess
+import sys
 import time
 from threading import Lock, Thread
 
 import docker
 from dotenv import load_dotenv
+from fastapi import FastAPI
 from packaging.version import InvalidVersion, Version, parse
+
+# Enable quick restart in docker
+app = FastAPI()
+
+
+def shutdown_handler(signum, frame):
+    logging.info("Received shutdown signal")
+    sys.exit(0)
+
+
+signal.signal(signal.SIGTERM, shutdown_handler)
+signal.signal(signal.SIGINT, shutdown_handler)
+
 
 # Global variables
 data_lock = Lock()
