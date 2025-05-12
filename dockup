@@ -142,7 +142,7 @@ def get_remote_tags(images):
                 # Skip non-production versions
                 if any(
                     bad_keyword in tag.lower()
-                    for bad_keyword in ["test", "rc", "alpha"]
+                    for bad_keyword in ["test", "rc", "alpha", "beta", "devel"]
                 ):
                     continue
 
