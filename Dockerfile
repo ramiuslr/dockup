@@ -1,11 +1,16 @@
 # Init image
-FROM python:3
+FROM python:slim
 WORKDIR /app
 
 # Install requirements
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-RUN wget -O /usr/bin/regctl https://github.com/regclient/regclient/releases/latest/download/regctl-linux-amd64
+RUN python - <<EOF
+from urllib.request import urlopen;
+from pathlib import Path;
+Path("/usr/bin/regctl").write_bytes(urlopen("https://github.com/regclient/regclient/releases/latest/download/regctl-linux-amd64").read())
+EOF
+
 RUN chmod 755 /usr/bin/regctl
 
 # Import app

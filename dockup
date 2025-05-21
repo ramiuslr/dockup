@@ -136,15 +136,13 @@ def get_remote_tags(images):
 
             for tag in tags:
                 # Skip mismatched suffixes
-                if local_suffix and not tag.endswith(local_suffix):
-                    continue
-
-                # Skip non-production versions
-                if any(
-                    bad_keyword in tag.lower()
-                    for bad_keyword in ["test", "rc", "alpha", "beta", "devel"]
-                ):
-                    continue
+                if local_suffix:
+                    if not tag.endswith(local_suffix):
+                        continue
+                else:
+                    # Skip tags with suffixes if local has none
+                    if "-" in tag:
+                        continue
 
                 # Validate version structure
                 if is_valid_semver(
